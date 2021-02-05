@@ -1,0 +1,15 @@
+config.json
+/node_modules
+node_modules/
+logs/
+/logs
+cert.pem
+chain.pem
+fullchain.pem
+privkey.pem
+WorkspaceSettings.xcsettings
+.lock
+package-lock.json
+
+# Mac specific
+.DS_Store
