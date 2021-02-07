@@ -167,6 +167,16 @@ var get_balance = function(callback){
     })
 };
 
+var get_status = function(callback){
+    rpcWallet('get_status', {} , function (error, result) {
+      if (error || !result) {
+  			callback(true, result || {})
+        return;
+      }
+      callback(false, result)
+    })
+};
+
 function createTransaction(command, callback) {
   rpcWallet('create_transaction', command.rpc, function (error, result) {
     if (error || !result) {
@@ -274,12 +284,14 @@ function submit() {
 }//start
 
 function run(){
-  let input_text = "Armor Network";
-  let text =  "\n" + ascii_text_generator(input_text,"2")
-              + "\nA fast, easy and anonymous payment system."
+
+  console.log("\n" + ascii_text_generator("Armor","2"))
+  console.log("\n" + ascii_text_generator("Network","2"))
+  let text =  "\nA fast, easy and anonymous payment system."
               + "\nhttps://armornetwork.org\n";
   console.log(text)
-  var queries = ["See balance", "Send transaction"];
+
+  var queries = ["See balance", "Send transaction", "Get status"];
   inquirer.prompt([{
     name: 'walletpassword',
     type: 'password',
@@ -293,7 +305,7 @@ function run(){
     default: "balance",
   }]).then((answers) => {
     walletpassword = answers.walletpassword;
-    if(answers.query == queries[0]){
+    if(answers.query == queries[0]) {
       get_balance(function(error, result){
         if(error){
           console.log("error=" + result);
@@ -308,7 +320,7 @@ function run(){
           Spendable dust outputs: ${result.spendable_dust_outputs}
           Locked or unconfirmed outputs: ${result.locked_or_unconfirmed_outputs}\x1b[0m`);
       });
-    }else if (answers.query == queries[1]){
+    } else if (answers.query == queries[1]){
         get_addresses(function(error, result){
           if(error){
             console.log("error=" + result);
@@ -366,12 +378,20 @@ function run(){
                   else
                     console.log("Cancelled!");
                 })
-          });
-        });
-    } else {
-      console.log("Error!");
-    }
-  });
+          })
+        })
+      } else if(answers.query == queries[2]) {
+        get_status(function(error, result){
+          if(error){
+            console.log("error=" + result);
+            return;
+          }
+          console.log(result);
+        })
+      } else {
+        console.log("Error!");
+      }
+    })
 }
 
 run();
