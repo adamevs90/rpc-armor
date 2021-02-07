@@ -41,5 +41,5 @@ For Ubuntu:
 git clone https://github.com/armornetworkdev/rpc-armor.git
 cd rpc-armor
 npm update
-node rpc-armornetwork
+node rpc-armor
 ```
