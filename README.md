@@ -2,17 +2,22 @@
 
 ```
 /**
+*      ___   _____        ___  ___   _____   _____   
+*     /   | |  _  \      /   |/   | /  _  \ |  _  \  
+*    / /| | | |_| |     / /|   /| | | | | | | |_| |  
+*   / / | | |  _  /    / / |__/ | | | | | | |  _  /  
+*  / /  | | | | \ \   / /       | | | |_| | | | \ \  
+* /_/   |_| |_|  \_\ /_/        |_| \_____/ |_|  \_\
 *
-*     _      ____    __  __    ___    ____      _   _   _____   _____
-*    / \    |  _ \  |  \/  |  / _ \  |  _ \    | \ | | | ____| |_   _|
-*   / _ \   | |_) | | |\/| | | | | | | |_) |   |  \| | |  _|     | |
-*  / ___ \  |  _ <  | |  | | | |_| | |  _ <    | |\  | | |___    | |
-* /_/   \_\ |_| \_\ |_|  |_|  \___/  |_| \_\   |_| \_| |_____|   |_|
+*  __   _   _____   _____   _          __  _____   _____    _   _   
+* |  \ | | | ____| |_   _| | |        / / /  _  \ |  _  \  | | / /  
+* |   \| | | |__     | |   | |  __   / /  | | | | | |_| |  | |/ /   
+* | |\   | |  __|    | |   | | /  | / /   | | | | |  _  /  | |\ \   
+* | | \  | | |___    | |   | |/   |/ /    | |_| | | | \ \  | | \ \  
+* |_|  \_| |_____|   |_|   |___/|___/     \_____/ |_|  \_\ |_|  \_\
 *
-*
-*	ARMOR NETWORK
-*	A fast, easy and anonymous payment system.
-*	https://armornetwork.org
+* A fast, easy and anonymous payment system.
+* https://armornetwork.org
 *
 **/
 
@@ -31,9 +36,7 @@ For Ubuntu:
  curl -sL https://deb.nodesource.com/setup_12.x | sudo -E bash
  sudo apt-get install -y nodejs
 ```
-- Armor network daemon running locally
-  **IP 127.0.0.1 Port 58082**
-  Follow the instructions here **[Armor Network Repository](https://github.com/armornetworkdev/armor)**
+- Armor network daemon running locally. Follow the instructions here **[Armor Network Repository](https://github.com/armornetworkdev/armor)**
 
 ## Configuration
 
