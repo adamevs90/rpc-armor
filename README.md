@@ -35,6 +35,18 @@ For Ubuntu:
   **IP 127.0.0.1 Port 58082**
   Follow the instructions here **[Armor Network Repository](https://github.com/armornetworkdev/armor)**
 
+## Configuration
+
+config.json file
+```
+{
+  "walletd": {
+  	"host": "127.0.0.1",
+  	"port": 58082,
+  	"httpPassword": "user:password"
+  }
+}
+```
 ## Run
 
 ```

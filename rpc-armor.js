@@ -20,12 +20,14 @@ var btoa = require('btoa');
 var async = require('async');
 var filter = require('filter-array');
 const inquirer = require('inquirer');
+const fs = require('fs');
 let ascii_text_generator = require('ascii-text-generator');
 
 // Global variables
-var host = "127.0.0.1";
-var port = 58082;
-var walletpassword = "user:password";
+var config;
+var host;
+var port;
+var httpPassword;
 var fee_per_byte = 100;
 var paranoid_check = false;
 var mixin = 3;
@@ -33,8 +35,6 @@ var destination_address = "";
 var spend_address = "";
 var change_address = "";
 var amount = 1; //atomic units
-
-
 
 var validatenumber = function (input) {
   if (isNaN(input)) {
@@ -50,9 +50,18 @@ var validatepositivenumber = function (input) {
   return true;
 };
 
-/**
- * Send API request using JSON HTTP
- **/
+var readConfFile = function (file, callback) {
+    fs.readFile(file, 'utf8', (err, data) => {
+      if (err) {
+        console.log(`\x1b[31mError reading ./config.json from disk: ${err}\x1b[0m`);
+        process.exit(1);
+      } else {
+        console.log(`config.json read correctly.\n`);
+        callback(JSON.parse(data));
+      }
+    });
+}
+
 function jsonHttpRequest(host, port, data, callback, path, http_auth){
     path = path || '/json_rpc';
     callback = callback || function(){};
@@ -81,12 +90,12 @@ function jsonHttpRequest(host, port, data, callback, path, http_auth){
             'Content-Length': data.length,
             'Content-Type': 'application/json',
             'Accept': 'application/json',
-            'Authorization': "Basic " + btoa(walletpassword)
+            'Authorization': "Basic " + btoa(httpPassword)
         }
         };
     }
 
-    var req = (port === 443 ? https : http).request(options, function(res){
+    var req = (port === 443 ? https : http).request(options, function(res){ // TODO
         var replyData = '';
         res.setEncoding('utf8');
         res.on('data', function(chunk){
@@ -112,9 +121,6 @@ function jsonHttpRequest(host, port, data, callback, path, http_auth){
     req.end(data);
 }
 
-/**
- * Send RPC request
- **/
 function rpc(host, port, method, params, callback, http_auth){
     var data = JSON.stringify({
         id: "0",
@@ -195,12 +201,12 @@ function createTransaction(command, callback) {
 
 function sendTransaction(command, callback) {
   if (!command.created) {
-    callback(true, command);
+    callback(true, "Transaction not created.");
     return;
   }
   rpcWallet('send_transaction', command.tx, function (error, result) {
     if (error || !result) {
-      callback(true, command.tx);
+      callback(true, result);
       return;
     }
     if (result.send_result != "broadcast") {
@@ -212,9 +218,8 @@ function sendTransaction(command, callback) {
   });
 }
 
-function submit() {
+function submit(cb) {
 
-	var binary_tx = "";
   var transferCommand = {
     amount: 0,
     tx: {
@@ -248,150 +253,159 @@ function submit() {
 		  paranoid_check = true;
       createTransaction(transferCommand, function (error, result) {
         if (error || !result) {
-          console.log("Error createTransaction");
-			  if(result)
-				  console.log(result);
-			  paranoid_check = false;
-			  callback(true, result);
+  				console.log(result);
+  			  paranoid_check = false;
+  			  callback(true, result);
           return;
         }
-        console.log("OK createTransaction");
-          callback(error, result);
-        });
-      },
-      function (command, callback) {
-        sendTransaction(command, function (error, result) {
-          if (error || !result) {
-            console.log("Error sendTransaction");
-            if(result)
-  				    console.log(result);
+        callback(null,result);
+      })
+    },
+    function (command, callback) {
+      sendTransaction(command, function (error, result) {
+        if (error || !result) {
+          console.log("Error sendTransaction");
+          if(result)
+  			    console.log(result);
             callback(true, result);
             return;
           }
-          console.log("OK sendTransaction");
-			    console.log(transferCommand.hash);
-			    paranoid_check = false;
-          callback(error, result);
-        })
-      }
+			  console.log(transferCommand.hash);
+			  paranoid_check = false;
+        callback(null, result);
+      })
+    }
     ],function (error, result) {
         if (error) {
-          console.log("ERROR " + error);
+          console.log(`\x1b[31mError ${error}\x1b[0m`);
         }else{
 			    console.log("\x1b[1m\x1b[32mSent!");
 		    }
+        cb(error,result);
     });
-}//start
+} // submit
 
 function run(){
 
-  console.log("\n" + ascii_text_generator("Armor","2"))
-  console.log("\n" + ascii_text_generator("Network","2"))
-  let text =  "\nA fast, easy and anonymous payment system."
-              + "\nhttps://armornetwork.org\n";
-  console.log(text)
+  console.log("\n" + ascii_text_generator("Armor","2"));
+  console.log("\n" + ascii_text_generator("Network","2"));
+  console.log("\nA fast, easy and anonymous payment system."
+              + "\nhttps://armornetwork.org\n");
 
-  var queries = ["See balance", "Send transaction", "Get status"];
-  inquirer.prompt([{
-    name: 'walletpassword',
-    type: 'password',
-    message: 'Insert HTTP credentials for ./walletd [default: ""]',
-  },
-  {
-    name: 'query',
-    type: 'list',
-    message: '',
-    choices: queries,
-    default: "balance",
-  }]).then((answers) => {
-    walletpassword = answers.walletpassword;
-    if(answers.query == queries[0]) {
-      get_balance(function(error, result){
-        if(error){
-          console.log("error=" + result);
-          return;
-        }
-        console.log(`
-          Spendable: ${result.spendable}[atomic units] => ${(result.spendable/100000000).toFixed(8)}[AMX]
-          Spendable dust: ${result.spendable_dust}[atomic units] => ${(result.spendable_dust/100000000).toFixed(8)}[AMX]
-          Locked or unconfirmed: ${result.locked_or_unconfirmed}[atomic units] => ${(result.locked_or_unconfirmed/100000000).toFixed(8)}[AMX]`);
-        console.log(`\x1b[2m
-          Spendable outputs: ${result.spendable_outputs}
-          Spendable dust outputs: ${result.spendable_dust_outputs}
-          Locked or unconfirmed outputs: ${result.locked_or_unconfirmed_outputs}\x1b[0m`);
-      });
-    } else if (answers.query == queries[1]){
-        get_addresses(function(error, result){
+  readConfFile("./config.json", function(config){
+    port = config.walletd.port;
+    host = config.walletd.host;
+    httpPassword = config.walletd.httpPassword;
+
+    var queries = ["See balance", "Send transaction", "Get status", "Exit"];
+    const ask = () => { inquirer.prompt([
+    {
+      name: 'query',
+      type: 'list',
+      message: 'query?',
+      choices: queries,
+      default: "balance",
+    }]).then((answers) => {
+      if(answers.query == queries[0]) {
+        get_balance(function(error, result){
           if(error){
-            console.log("error=" + result);
-            return;
+            console.log(`\x1b[31merror ${result}\x1b[0m`);
+          } else {
+            console.log(`
+              Spendable: ${result.spendable}[atomic units] => ${(result.spendable/100000000).toFixed(8)}[AMX]
+              Spendable dust: ${result.spendable_dust}[atomic units] => ${(result.spendable_dust/100000000).toFixed(8)}[AMX]
+              Locked or unconfirmed: ${result.locked_or_unconfirmed}[atomic units] => ${(result.locked_or_unconfirmed/100000000).toFixed(8)}[AMX]`);
+            console.log(`\x1b[2m
+              Spendable outputs: ${result.spendable_outputs}
+              Spendable dust outputs: ${result.spendable_dust_outputs}
+              Locked or unconfirmed outputs: ${result.locked_or_unconfirmed_outputs}\x1b[0m`);
           }
-          var addresses = result.addresses;
+          ask();
+        });
+      } else if (answers.query == queries[1]){
+          get_addresses(function(error, result){
+            if(error){
+              console.log(`\x1b[31merror ${result}\x1b[0m`);
+              ask();
+              return;
+            }
+            var addresses = result.addresses;
 
-          inquirer.prompt([{
-            name: 'destination',
-            type: 'input',
-            message: 'What\'s the destination address?',
-          },{
-            name: 'spend',
-            type: 'input',
-            message: 'What\'s the spend address? [default: ' + addresses[0] + ']',
-            choices: addresses,
-            default: addresses[0],
-          },{
-            name: 'anonymity',
-            type: 'number',
-            message: 'What anonymity? [default: 3]',
-            default: 3,
-            validate: validatenumber
-          },{
-            name: 'optimisation',
-            type: 'list',
-            message: 'What type of optimization do you want? [default: normal]',
-            choices: ['minimal', 'normal', 'aggressive'],
-            default: 1,
-          },{
-            name: 'amount',
-            type: 'input',
-            message: 'Amount? [atomic units] If you want to send 1 AMX then put 100000000 a.u.',
-            validate: validatepositivenumber
-          }]).then((answers) => {
-            console.log(`\n\x1b[1m\x1b[32mDestination address: ${answers.destination}
-              Source address: ${answers.spend}
-              Optimisation: ${answers.optimisation}
-              Amount: ${answers.amount}[atomic units] => ${(answers.amount/100000000).toFixed(8)}[AMX]\n`);
+            inquirer.prompt([{
+              name: 'destination',
+              type: 'input',
+              message: 'What\'s the destination address?',
+            },{
+              name: 'spend',
+              type: 'input',
+              message: 'What\'s the spend address? [default: ' + addresses[0] + ']',
+              choices: addresses,
+              default: addresses[0],
+            },{
+              name: 'anonymity',
+              type: 'number',
+              message: 'What anonymity? [default: 3]',
+              default: 3,
+              validate: validatenumber
+            },{
+              name: 'optimisation',
+              type: 'list',
+              message: 'What type of optimization do you want? [default: normal]',
+              choices: ['minimal', 'normal', 'aggressive'],
+              default: 1,
+            },{
+              name: 'amount',
+              type: 'input',
+              message: 'Amount? [atomic units] If you want to send 1 AMX then put 100000000 a.u.',
+              validate: validatepositivenumber
+            }]).then((answers) => {
+              console.log(`\n\x1b[1m\x1b[32mDestination address: ${answers.destination}
+                Source address: ${answers.spend}
+                Optimisation: ${answers.optimisation}
+                Amount: ${answers.amount}[atomic units] => ${(answers.amount/100000000).toFixed(8)}[AMX]\n`);
 
-              destination_address = answers.destination;
-              spend_address = answers.spend;
-              change_address = answers.spend;
-              optimization = answers.optimisation;
-              amount = parseInt(answers.amount);
-              mixin = parseInt(answers.anonymity);
+                destination_address = answers.destination;
+                spend_address = answers.spend;
+                change_address = answers.spend;
+                optimization = answers.optimisation;
+                amount = parseInt(answers.amount);
+                mixin = parseInt(answers.anonymity);
 
-              inquirer.prompt([{
-                name: 'submit',
-                type: 'confirm',
-                message: 'Submit?',
-                }]).then((ans) => {
-                  if(ans.submit)
-                    submit();
-                  else
-                    console.log("Cancelled!");
-                })
+                inquirer.prompt([{
+                  name: 'submit',
+                  type: 'confirm',
+                  message: 'Submit?',
+                  }]).then((ans) => {
+                    if(ans.submit) {
+                      submit(function(error,result){
+                        ask();
+                      });
+                    } else {
+                      console.log("Cancelled!");
+                      ask();
+                    }
+                  })
+            })
           })
-        })
-      } else if(answers.query == queries[2]) {
-        get_status(function(error, result){
-          if(error){
-            console.log("error=" + result);
-            return;
-          }
-          console.log(result);
-        })
-      } else {
-        console.log("Error!");
-      }
-    })
+        } else if(answers.query == queries[2]) {
+          get_status(function(error, result){
+            if(error){
+              console.log(`\x1b[31mError ${result}\x1b[0m`);
+            } else {
+              console.log(result);
+            }
+            ask();
+          })
+        } else if(answers.query == queries[3]) {
+            process.exit(0);
+        } else {
+          console.log(`\x1b[31mError\x1b[0m`);
+          ask();
+        }
+      })
+    }
+    ask();
+  })
 }
 
 run();
