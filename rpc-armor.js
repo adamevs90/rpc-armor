@@ -35,6 +35,7 @@ var destination_address = "";
 var spend_address = "";
 var change_address = "";
 var amount = 1; //atomic units
+var any_spend_address = false;
 
 var validatenumber = function (input) {
   if (isNaN(input)) {
@@ -163,8 +164,8 @@ var get_addresses = function(callback){
     })
 };
 
-var get_balance = function(callback){
-    rpcWallet('get_balance', {} , function (error, result) {
+var get_balance = function(params, callback){
+    rpcWallet('get_balance', params , function (error, result) {
       if (error || !result) {
   			callback(true, result || {})
         return;
@@ -177,6 +178,16 @@ var get_status = function(callback){
     rpcWallet('get_status', {} , function (error, result) {
       if (error || !result) {
   			callback(true, result || {})
+        return;
+      }
+      callback(false, result)
+    })
+};
+
+var create_addresses = function(params, callback){
+    rpcWallet('create_addresses', params , function (error, result) {
+      if (error || !result) {
+        callback(true, result || {})
         return;
       }
       callback(false, result)
@@ -238,6 +249,7 @@ function submit(cb) {
       },
       optimization: optimization,
       spend_addresses: [spend_address],
+      any_spend_address: any_spend_address,
       change_address: change_address
     }
   };
@@ -285,123 +297,152 @@ function submit(cb) {
     });
 } // submit
 
-function run(){
+function run() {
 
   console.log("\n" + ascii_text_generator("Armor","2"));
   console.log("\n" + ascii_text_generator("Network","2"));
   console.log("\nA fast, easy and anonymous payment system."
               + "\nhttps://armornetwork.org\n");
 
-  readConfFile("./config.json", function(config){
+  readConfFile("./config.json", function(config) {
     port = config.walletd.port;
     host = config.walletd.host;
     httpPassword = config.walletd.httpPassword;
 
-    var queries = ["See balance", "Send transaction", "Get status", "Exit"];
-    const ask = () => { inquirer.prompt([
-    {
-      name: 'query',
-      type: 'list',
-      message: 'query?',
-      choices: queries,
-      default: "balance",
-    }]).then((answers) => {
-      if(answers.query == queries[0]) {
-        get_balance(function(error, result){
-          if(error){
-            console.log(`\x1b[31merror ${result}\x1b[0m`);
-          } else {
-            console.log(`
-              Spendable: ${result.spendable}[atomic units] => ${(result.spendable/100000000).toFixed(8)}[AMX]
-              Spendable dust: ${result.spendable_dust}[atomic units] => ${(result.spendable_dust/100000000).toFixed(8)}[AMX]
-              Locked or unconfirmed: ${result.locked_or_unconfirmed}[atomic units] => ${(result.locked_or_unconfirmed/100000000).toFixed(8)}[AMX]`);
-            console.log(`\x1b[2m
-              Spendable outputs: ${result.spendable_outputs}
-              Spendable dust outputs: ${result.spendable_dust_outputs}
-              Locked or unconfirmed outputs: ${result.locked_or_unconfirmed_outputs}\x1b[0m`);
-          }
-          ask();
-        });
-      } else if (answers.query == queries[1]){
-          get_addresses(function(error, result){
-            if(error){
-              console.log(`\x1b[31merror ${result}\x1b[0m`);
-              ask();
-              return;
-            }
-            var addresses = result.addresses;
+    var queries = ["See balance", "My addresses", "Send transaction", "Get status", "Create address", "Exit"];
 
-            inquirer.prompt([{
-              name: 'destination',
-              type: 'input',
-              message: 'What\'s the destination address?',
-            },{
-              name: 'spend',
-              type: 'input',
-              message: 'What\'s the spend address? [default: ' + addresses[0] + ']',
-              choices: addresses,
-              default: addresses[0],
-            },{
-              name: 'anonymity',
-              type: 'number',
-              message: 'What anonymity? [default: 3]',
-              default: 3,
-              validate: validatenumber
-            },{
-              name: 'optimisation',
-              type: 'list',
-              message: 'What type of optimization do you want? [default: normal]',
-              choices: ['minimal', 'normal', 'aggressive'],
-              default: 1,
-            },{
-              name: 'amount',
-              type: 'input',
-              message: 'Amount? [atomic units] If you want to send 1 AMX then put 100000000 a.u.',
-              validate: validatepositivenumber
-            }]).then((answers) => {
-              console.log(`\n\x1b[1m\x1b[32mDestination address: ${answers.destination}
-                Source address: ${answers.spend}
-                Optimisation: ${answers.optimisation}
-                Amount: ${answers.amount}[atomic units] => ${(answers.amount/100000000).toFixed(8)}[AMX]\n`);
+    const ask = () => {
 
-                destination_address = answers.destination;
-                spend_address = answers.spend;
-                change_address = answers.spend;
-                optimization = answers.optimisation;
-                amount = parseInt(answers.amount);
-                mixin = parseInt(answers.anonymity);
+      var addresses;
 
-                inquirer.prompt([{
-                  name: 'submit',
-                  type: 'confirm',
-                  message: 'Submit?',
-                  }]).then((ans) => {
-                    if(ans.submit) {
-                      submit(function(error,result){
-                        ask();
-                      });
-                    } else {
-                      console.log("Cancelled!");
-                      ask();
-                    }
-                  })
-            })
-          })
-        } else if(answers.query == queries[2]) {
-          get_status(function(error, result){
-            if(error){
-              console.log(`\x1b[31mError ${result}\x1b[0m`);
-            } else {
-              console.log(result);
-            }
-            ask();
-          })
-        } else if(answers.query == queries[3]) {
-            process.exit(0);
-        } else {
-          console.log(`\x1b[31mError\x1b[0m`);
-          ask();
+      get_addresses(function(error, result) {
+        if(error){
+          console.log(`\x1b[31merror ${result}\x1b[0m`);
+          return;
         }
+        addresses = result.addresses;
+
+        inquirer.prompt([
+        {
+          name: 'query',
+          type: 'list',
+          message: 'query?',
+          choices: queries,
+          default: "balance",
+        }]).then((answers) => {
+          if(answers.query == queries[0]) {
+            addresses.push("all")
+            inquirer.prompt([
+            {
+              name: 'address',
+              type: 'list',
+              message: 'What address? [all for all addresses]',
+              choices: addresses,
+              default: "all",
+            }]).then((answers) => {
+              get_balance(answers.address == "all" ? {} : { address: answers.address },function(error, result){
+                if(error){
+                console.log(`\x1b[31merror ${result}\x1b[0m`);
+                } else {
+                  console.log(`
+                    Spendable: ${result.spendable}[atomic units] => ${(result.spendable/100000000).toFixed(8)}[AMX]
+                    Spendable dust: ${result.spendable_dust}[atomic units] => ${(result.spendable_dust/100000000).toFixed(8)}[AMX]
+                    Locked or unconfirmed: ${result.locked_or_unconfirmed}[atomic units] => ${(result.locked_or_unconfirmed/100000000).toFixed(8)}[AMX]`);
+                  console.log(`\x1b[2m
+                    Spendable outputs: ${result.spendable_outputs}
+                    Spendable dust outputs: ${result.spendable_dust_outputs}
+                    Locked or unconfirmed outputs: ${result.locked_or_unconfirmed_outputs}\x1b[0m`);
+                  ask();
+                }
+              })
+            })
+          } else if (answers.query == queries[1]){
+              console.log(addresses);
+              ask();
+          } else if (answers.query == queries[2]){
+                addresses.push("any")
+                inquirer.prompt([{
+                  name: 'destination',
+                  type: 'input',
+                  message: 'What\'s the destination address?',
+                },{
+                  name: 'spend',
+                  type: 'list',
+                  message: 'What\'s the spend address? [any for any spend address]',
+                  choices: addresses,
+                  default: "any",
+                },{
+                  name: 'anonymity',
+                  type: 'number',
+                  message: 'What anonymity? [default: 3]',
+                  default: 3,
+                  validate: validatenumber
+                },{
+                  name: 'optimisation',
+                  type: 'list',
+                  message: 'What type of optimization do you want? [default: normal]',
+                  choices: ['minimal', 'normal', 'aggressive'],
+                  default: 1,
+                },{
+                  name: 'amount',
+                  type: 'input',
+                  message: 'Amount? [atomic units] If you want to send 1 AMX then put 100000000 a.u.',
+                  validate: validatepositivenumber
+                }]).then((answers) => {
+                    destination_address = answers.destination;
+                    spend_address = answers.spend == "any" ? "" : answers.spend;
+                    any_spend_address = answers.spend == "any" ? true : false;
+                    change_address = answers.spend;
+                    optimization = answers.optimisation;
+                    amount = parseInt(answers.amount);
+                    mixin = parseInt(answers.anonymity);
+
+                    console.log(`\n\x1b[1m\x1b[32mDestination address: ${answers.destination}
+                      Source address: ${answers.spend}
+                      Anonymity: ${mixin}
+                      Optimisation: ${optimization}
+                      Amount: ${amount}[atomic units] => ${(amount/100000000).toFixed(8)}[AMX]\n`);
+
+                    inquirer.prompt([{
+                      name: 'submit',
+                      type: 'confirm',
+                      message: 'Submit?',
+                      }]).then((ans) => {
+                        if(ans.submit) {
+                          submit(function(error,result){
+                            ask();
+                          });
+                        } else {
+                          console.log("Cancelled!");
+                          ask();
+                        }
+                      })
+                  })
+            } else if(answers.query == queries[3]) {
+              get_status(function(error, result){
+                if(error){
+                  console.log(`\x1b[31mError ${result}\x1b[0m`);
+                } else {
+                  console.log(result);
+                }
+                ask();
+              })
+            } else if(answers.query == queries[4]) {
+              create_addresses({secret_spend_keys: [""]},function(error, result){
+                if(error){
+                  console.log(`\x1b[31mError ${result}\x1b[0m`);
+                } else {
+                  console.log(result);
+                }
+                ask();
+              })
+            } else if(answers.query == queries[5]) {
+                process.exit(0);
+            } else {
+              console.log(`\x1b[31mError\x1b[0m`);
+              ask();
+            }
+        })
       })
     }
     ask();

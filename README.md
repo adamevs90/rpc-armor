@@ -23,7 +23,7 @@
 
 ```
 
-A wallet written in JavaScript for Armor Network.
+A RPC wallet written in JavaScript for Armor Network.
 
 # Usage
 
